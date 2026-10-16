@@ -61,3 +61,16 @@ body{background:linear-gradient(180deg,#f8fbff 0%,#f2f6fb 100%);color:#172033}
 .text-button{color:#087f68}
 .spinner{border-color:#9bdac9;border-top-color:transparent}
 footer{color:#78879a}footer span:first-child{color:#536277}
+
+/* Simplified client-facing form: locked labels + editable values only */
+.layout{grid-template-columns:minmax(0,1fr) 300px;align-items:start}
+.simple-field-card{display:grid;grid-template-columns:minmax(180px,.8fr) minmax(240px,1.2fr);align-items:end;gap:18px;padding:16px 18px;background:#fff;border-color:#dfe7ef}
+.simple-field-label,.simple-value-label{display:flex;flex-direction:column;gap:8px;min-width:0;font-size:11px;font-weight:700;color:#536277}
+.simple-field-card input{width:100%;min-width:0;border:1px solid #cbd6e2;background:#fff;border-radius:7px;color:#172033;padding:11px 12px;font-size:13px;outline:none}
+.simple-field-card input:focus{border-color:#149b80;box-shadow:0 0 0 3px #149b8018}
+.simple-field-card input.locked-field{background:#f1f5f9;color:#425168;border-color:#e0e7ef;cursor:default;pointer-events:none}
+.simple-export-panel{position:sticky;top:18px}
+.simple-export-panel .helper{margin:0 0 8px}
+.simple-export-panel .status-banner{overflow-wrap:anywhere}
+@media(max-width:900px){.layout{grid-template-columns:1fr}.simple-export-panel{position:static}.simple-field-card{grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr)}}
+@media(max-width:620px){.simple-field-card{grid-template-columns:1fr;gap:12px}.simple-field-label,.simple-value-label{font-size:11px}.simple-field-card input{font-size:13px}}
