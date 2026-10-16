@@ -1,9 +1,9 @@
-# Complete Project Generator
+# Complete Project Generator — Master ZIP edition
 
-A local-first React/Vite app that accepts a master ZIP, configures form fields, replaces explicit `{{UPPERCASE_TOKEN}}` placeholders in recognized text files, performs basic validation, and exports a customized ZIP.
+This browser-only React/Vite app is tailored to the supplied Rahul Chrome Extension ZIP. It detects a simple `const formData = { ... }` object in a JS/TS file, creates one input per primitive property, and exports a new ZIP after updating only those property values. Other files and binary assets are copied unchanged.
 
 ## Requirements
-- Node.js 18+ (Node.js 20+ recommended)
+- Node.js 20+ (pinned for Netlify in `.nvmrc` and `netlify.toml`)
 - npm
 
 ## Run locally
@@ -11,43 +11,24 @@ A local-first React/Vite app that accepts a master ZIP, configures form fields, 
 npm install
 npm run dev
 ```
-Open the local URL shown by Vite. To create a production build:
+Build and preview:
 ```bash
 npm run build
 npm run preview
 ```
 
+## Deploy to Netlify
+Import the GitHub repository. If the repository contains this folder as a subfolder, set Base directory to `project-generator`; otherwise leave Base directory blank. Build command: `npm run build`; publish directory: `dist`. The included `netlify.toml` sets Node 20 and these build settings.
+
 ## Workflow
-1. Prepare a master project ZIP.
-2. Replace variable client/project values in text source files with explicit tokens, e.g. `{{CLIENT_NAME}}`, `{{CLIENT_EMAIL}}`, `{{PROJECT_NAME}}`.
-3. Upload the master ZIP. Detected tokens are added to the schema automatically.
-4. Set labels, field types, required rules and values.
-5. Generate and export the ZIP.
-6. Run the generated project's own build and tests before deploying it.
+1. Upload the original Master ZIP.
+2. The app scans JS/TS text files for a simple `formData` object with literal primitive properties.
+3. The app creates matching data inputs and pre-fills them with values found in the master ZIP.
+4. Edit values and choose an output filename.
+5. Generate a ZIP with the same paths/files; only detected `formData` property values and explicit `{{UPPERCASE_TOKEN}}` tokens in recognized text files are changed.
 
-## Safe replacement rules
-- Only explicit `{{UPPERCASE_TOKEN}}` tokens are replaced.
-- Only recognized text file extensions are scanned/replaced; binary assets are copied unchanged.
-- ZIP absolute paths and parent-directory traversal paths are rejected.
-- JSON files are parsed after replacements; invalid JSON prevents export.
-- Unknown tokens block generation.
-- Uploads are processed in the browser; this app has no backend or upload endpoint.
-
-## Important limitations
-This tool does not automatically infer every application's business logic or guarantee that a generated project compiles. It does not run arbitrary code from the uploaded ZIP. Build commands are project-specific and should be run separately. Replacements are literal text substitutions: keep placeholders in the appropriate string context and do not use this mechanism to insert untrusted source code.
-
-## Example placeholders
-JavaScript:
-```js
-const clientName = "{{CLIENT_NAME}}";
-```
-JSON:
-```json
-{ "name": "{{PROJECT_NAME}}" }
-```
-HTML:
-```html
-<title>{{PROJECT_NAME}}</title>
-```
-
-Do not put passwords, private keys, API secrets or other sensitive credentials in templates or form values.
+## Limitations and safety
+- ZIP is processed in the browser; there is no upload backend.
+- This parser supports simple primitive properties on separate lines. Nested/computed values, object spreads, and complex syntax need a custom parser.
+- It does not execute the uploaded project or guarantee its build. Test the exported extension on an authorized test page before real use.
+- Do not upload projects containing credentials or secrets.
