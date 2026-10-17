@@ -192,8 +192,8 @@ function App() {
           const edits = parsed.props.filter(p => bindMap.has(p.sourceKey)).map(p => ({ start: p.start, end: p.end, value: JSON.stringify(bindMap.get(p.sourceKey)), remove: false }));
           // Remove the requested keys from the generated formData object itself, not just from the UI.
           for (const p of parsed.props.filter(p => isRemovedField({ sourceKey: p.sourceKey, label: labelFor(p.sourceKey) }))) {
-            const lineStart = source.lastIndexOf('\\n', p.start - 1) + 1;
-            const nextNewline = source.indexOf('\\n', p.end);
+            const lineStart = source.lastIndexOf('\n', p.start - 1) + 1;
+            const nextNewline = source.indexOf('\n', p.end);
             const lineEnd = nextNewline < 0 ? source.length : nextNewline + 1;
             edits.push({ start: lineStart, end: lineEnd, value: '', remove: true });
           }
