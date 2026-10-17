@@ -11,6 +11,17 @@ const safeKey = s => String(s || '').trim().toUpperCase().replace(/[^A-Z0-9_]+/g
 const labelFor = s => String(s).replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/[_-]+/g, ' ').replace(/^./, c => c.toUpperCase());
 const typeFor = (key, value) => /email/i.test(key) ? 'email' : /mobile|phone|tel/i.test(key) ? 'tel' : /dob|birth|date/i.test(key) && /^\d{4}-\d\d-\d\d$/.test(value) ? 'date' : 'text';
 const normalizeField = s => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+// These personal fields are hidden in the generator UI and removed from the exported Master ZIP.
+const REMOVED_FIELDS = new Set([
+  'firstname', 'middlename', 'lastname', 'gender', 'dateofbirth', 'dob',
+  'panno', 'pancardno', 'aadhaarno', 'aadharno', 'email', 'mobileno',
+  'mobile', 'phoneno'
+]);
+const isRemovedField = field => REMOVED_FIELDS.has(
+  normalizeField(`${field.sourceKey || ''} ${field.label || ''}`).split(' ').join('')
+) || REMOVED_FIELDS.has(normalizeField(field.sourceKey || '')) ||
+  REMOVED_FIELDS.has(normalizeField(field.label || ''));
+
 function optionsForField(field) {
   const k = normalizeField(`${field.sourceKey || ''} ${field.label || ''}`);
   if (k.includes('bankname') || k === 'bank') return { kind: 'select', options: BANK_LIST };
@@ -106,7 +117,7 @@ function App() {
       }
       let newFields = [], newValues = {}, newBindings = [];
       if (found) {
-        newFields = found.props.map((p, i) => {
+        newFields = found.props.filter(p => !isRemovedField({ sourceKey: p.sourceKey, label: labelFor(p.sourceKey) })).map((p, i) => {
           const key = `DATA_${safeKey(p.sourceKey) || `FIELD_${i+1}`}`;
           newValues[key] = p.value;
           newBindings.push({ fieldKey: key, sourceKey: p.sourceKey });
@@ -167,8 +178,19 @@ function App() {
           const parsed = parseFormDataObject(source);
           if (!parsed) throw new Error(`Could not re-parse formData object in ${path}.`);
           // Replace values from right to left so offsets stay valid. Only literal values inside formData are changed.
-          const edits = parsed.props.filter(p => bindMap.has(p.sourceKey)).map(p => ({ start: p.start, end: p.end, value: JSON.stringify(bindMap.get(p.sourceKey)) })).sort((a,b) => b.start-a.start);
-          for (const edit of edits) { source = source.slice(0, edit.start) + edit.value + source.slice(edit.end); replacementCount++; }
+          const edits = parsed.props.filter(p => bindMap.has(p.sourceKey)).map(p => ({ start: p.start, end: p.end, value: JSON.stringify(bindMap.get(p.sourceKey)), remove: false }));
+          // Remove the requested keys from the generated formData object itself, not just from the UI.
+          for (const p of parsed.props.filter(p => isRemovedField({ sourceKey: p.sourceKey, label: labelFor(p.sourceKey) }))) {
+            const lineStart = source.lastIndexOf('\\n', p.start - 1) + 1;
+            const nextNewline = source.indexOf('\\n', p.end);
+            const lineEnd = nextNewline < 0 ? source.length : nextNewline + 1;
+            edits.push({ start: lineStart, end: lineEnd, value: '', remove: true });
+          }
+          edits.sort((a,b) => b.start-a.start);
+          for (const edit of edits) {
+            source = source.slice(0, edit.start) + edit.value + source.slice(edit.end);
+            replacementCount++;
+          }
           const existingKeys = new Set(parsed.props.map(p => p.sourceKey));
           const generatedSpouse = bindings.find(b => b.generatedProperty && b.sourceKey === 'spouseName');
           const maritalBinding = bindings.find(b => /maritalstatus|marital/i.test(normalizeField(b.sourceKey)));
