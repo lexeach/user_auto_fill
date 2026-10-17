@@ -74,3 +74,8 @@ footer{color:#78879a}footer span:first-child{color:#536277}
 .simple-export-panel .status-banner{overflow-wrap:anywhere}
 @media(max-width:900px){.layout{grid-template-columns:1fr}.simple-export-panel{position:static}.simple-field-card{grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr)}}
 @media(max-width:620px){.simple-field-card{grid-template-columns:1fr;gap:12px}.simple-field-label,.simple-value-label{font-size:11px}.simple-field-card input{font-size:13px}}
+
+/* Dropdown controls used by Bank, Category, State, District and Marital Status */
+.simple-field-card select{width:100%;min-width:0;border:1px solid #cbd6e2;background:#fff;border-radius:7px;color:#172033;padding:11px 12px;font-size:13px;outline:none;color-scheme:light}
+.simple-field-card select:focus{border-color:#149b80;box-shadow:0 0 0 3px #149b8018}
+.simple-field-card select:disabled{background:#f1f5f9;color:#8b98a9;cursor:not-allowed}
