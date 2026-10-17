@@ -135,7 +135,7 @@ function App() {
   }
 
   function updateField(index, patch) { setFields(prev => prev.map((f, i) => i === index ? { ...f, ...patch } : f)); }
-  function setFieldValue(key, value) { setValues(prev => ({ ...prev, [key]: value })); }
+  function setFieldValue(key, value) { setValues(prev => { const next = { ...prev, [key]: value }; const field = fields.find(f => f.key === key); if (field && isMaritalField(field) && String(value).trim().toLowerCase() !== 'married') { const spouse = fields.find(f => f.conditionalSpouse || /spouse.?name/i.test(`${f.key} ${f.label}`)); if (spouse) next[spouse.key] = ''; } return next; }); }
 
   async function generate() {
     if (!zip || !dataFilePath || !bindings.length) { setStatus({ type: 'error', text: 'Upload a supported Master ZIP containing a formData object first.' }); return; }
@@ -206,7 +206,7 @@ function App() {
           const fieldOptions = optionsForField(f);
           const maritalField = fields.find(isMaritalField);
           const maritalValue = maritalField ? String(values[maritalField.key] ?? '').trim().toLowerCase() : '';
-          if (f.conditionalSpouse && maritalValue !== 'married') return null;
+          if ((f.conditionalSpouse || /spouse.?name/i.test(`${f.key} ${f.label}`)) && maritalValue !== 'married') return null;
           let options = fieldOptions.options || [];
           if (fieldOptions.kind === 'district') {
             const stateField = fields.find(isStateField);
