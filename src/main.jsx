@@ -17,7 +17,8 @@ function optionsForField(field) {
   if (k.includes('category') || k.includes('reservationcategory')) return { kind: 'select', options: CATEGORY_LIST };
   if (k === 'state' || k.endsWith('state')) return { kind: 'select', options: Object.keys(STATE_DISTRICT_DATA) };
   if (k === 'district' || k.endsWith('district')) return { kind: 'district' };
-  if (k.includes('maritalstatus') || k === 'marital') return { kind: 'select', options: ['Married', 'Single'] };
+  if (k === 'region' || k.endsWith('region')) return { kind: 'select', options: ['Delhi', 'Outside Delhi'] };
+  if (k.includes('maritalstatus') || k === 'marital') return { kind: 'select', options: ['Married', 'Unmarried', 'Single', 'Divorced', 'Widow/Widower'] };
   return { kind: 'text' };
 }
 const isMaritalField = f => /maritalstatus|marital/i.test(normalizeField(`${f.sourceKey || ''} ${f.label || ''}`));
