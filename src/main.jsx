@@ -10,19 +10,7 @@ const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'build']);
 const safeKey = s => String(s || '').trim().toUpperCase().replace(/[^A-Z0-9_]+/g, '_').replace(/^_+|_+$/g, '');
 const labelFor = s => String(s).replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/[_-]+/g, ' ').replace(/^./, c => c.toUpperCase());
 const typeFor = (key, value) => /email/i.test(key) ? 'email' : /mobile|phone|tel/i.test(key) ? 'tel' : /dob|birth|date/i.test(key) && /^\d{4}-\d\d-\d\d$/.test(value) ? 'date' : 'text';
-
 const normalizeField = s => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-function profileDisplayNames(fields, values) {
-  const get = (...patterns) => {
-    const f = fields.find(item => patterns.some(p => p.test(normalizeField(`${item.sourceKey || ''} ${item.label || ''}`))));
-    return f ? String(values[f.key] ?? '').trim() : '';
-  };
-  const first = get(/firstname/, /^name$/);
-  const father = get(/fathername/, /fathersname/, /fatherfullname/);
-  const fullName = [first, get(/^middlename$/), get(/^lastname$/)].filter(Boolean).join(' ').trim() || first;
-  const safe = s => String(s || '').replace(/[<>:"/\\|?*\x00-\x1F]/g, '').replace(/\s+/g, ' ').trim();
-  return { personName: safe(fullName || 'Selected Profile'), fatherName: safe(father), slug: safe([fullName, father].filter(Boolean).join('-')).replace(/\s+/g, '-').replace(/-+/g, '-') };
-}
 function optionsForField(field) {
   const k = normalizeField(`${field.sourceKey || ''} ${field.label || ''}`);
   if (k.includes('bankname') || k === 'bank') return { kind: 'select', options: BANK_LIST };
@@ -162,6 +150,13 @@ function App() {
     setBusy(true); setStatus({ type: 'info', text: 'Replacing only the detected formData values and rebuilding ZIP…' });
     try {
       const output = new JSZip(); let replacementCount = 0;
+      const valueFor = (...patterns) => {
+        const field = fields.find(f => patterns.some(pattern => pattern.test(`${f.key} ${f.label} ${f.sourceKey || ''}`)));
+        return field ? String(values[field.key] ?? '').trim() : '';
+      };
+      const personName = [valueFor(/first.?name/i), valueFor(/middle.?name/i), valueFor(/last.?name|surname/i)].filter(Boolean).join(' ') || valueFor(/^name$/i, /full.?name/i);
+      const fatherName = valueFor(/father.?name/i, /fathername/i);
+      const displayName = [personName, fatherName].filter(Boolean).join(' / ') || personName || 'Selected Profile';
       const bindMap = new Map(bindings.map(b => [b.sourceKey, String(values[b.fieldKey] ?? '')]));
       for (const [path, entry] of Object.entries(zip.files)) {
         if (entry.dir) { output.folder(path); continue; }
@@ -189,32 +184,33 @@ function App() {
         }
         if (TEXT_EXT.test(path) && !path.split('/').some(p => SKIP_DIRS.has(p))) {
           let content = await entry.async('string');
-          content = content.replace(TOKEN_RE, (whole, key) => { if (!Object.prototype.hasOwnProperty.call(values, key)) return whole; replacementCount++; return String(values[key] ?? ''); });
-          const names = profileDisplayNames(fields, values);
-          if (/manifest\.json$/i.test(path)) {
+          const basename = path.split('/').pop().toLowerCase();
+          if (basename === 'manifest.json') {
             try {
               const manifest = JSON.parse(content);
-              manifest.name = [names.personName, names.fatherName].filter(Boolean).join(' / ') || names.personName;
-              content = JSON.stringify(manifest, null, 2);
+              manifest.name = displayName;
+              content = JSON.stringify(manifest, null, 2) + '\n';
               replacementCount++;
-            } catch (e) { throw new Error(`Could not customize extension name in ${path}: ${e.message}`); }
+            } catch (e) { throw new Error(`Could not customize manifest name in ${path}: ${e.message}`); }
           }
-          if (/popup\.html$/i.test(path)) {
-            const buttonLabel = `Fill ${[names.personName, names.fatherName].filter(Boolean).join(' / ') || names.personName} Detail`;
-            content = content.replace(/(<button\\b[^>]*\\bid=["']fillBtn["'][^>]*>)[\\s\\S]*?(<\\/button>)/i, `$1${buttonLabel}$2`);
-            replacementCount++;
+          if (basename === 'popup.html') {
+            const buttonLabel = `Fill ${displayName} Detail`;
+            const buttonPattern = /(<button\b[^>]*\bid=["']fillBtn["'][^>]*>)[\s\S]*?(<\/button>)/i;
+            if (buttonPattern.test(content)) {
+              content = content.replace(buttonPattern, (_match, start, end) => `${start}${buttonLabel}${end}`);
+              replacementCount++;
+            }
           }
+          content = content.replace(TOKEN_RE, (whole, key) => { if (!Object.prototype.hasOwnProperty.call(values, key)) return whole; replacementCount++; return String(values[key] ?? ''); });
           if (path.toLowerCase().endsWith('.json')) { try { JSON.parse(content); } catch (e) { throw new Error(`Invalid JSON after replacement in ${path}: ${e.message}`); } }
           output.file(path, content);
         } else output.file(path, await entry.async('uint8array'));
       }
-      const profileNames = profileDisplayNames(fields, values);
-      const generatedProfileSlug = profileNames.slug || '';
-      const safeSlug = (generatedProfileSlug || projectSlug || 'customized-project').trim().replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'customized-project';
+      const safeSlug = ([personName, fatherName].filter(Boolean).join('-') || projectSlug || 'customized-project').trim().replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'customized-project';
       const blob = await output.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } });
       const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `${safeSlug}.zip`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 5000);
       setValidation({ ok: true, errors: [], warnings: ['The original ZIP structure and non-target files are preserved. The generator does not execute or compile the exported project; test the extension on a safe, authorized test page.'] });
-      setStatus({ type: 'success', text: `Exported ${safeSlug}.zip. Customized extension name, popup button, and updated ${replacementCount} value(s) in the detected formData object and explicit tokens.` });
+      setStatus({ type: 'success', text: `Exported ${safeSlug}.zip. Updated ${replacementCount} value(s) in the detected formData object and explicit tokens.` });
     } catch (e) { setValidation({ ok: false, errors: [e.message], warnings: [] }); setStatus({ type: 'error', text: `Generation failed: ${e.message}` }); }
     finally { setBusy(false); }
   }
