@@ -10,7 +10,19 @@ const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'build']);
 const safeKey = s => String(s || '').trim().toUpperCase().replace(/[^A-Z0-9_]+/g, '_').replace(/^_+|_+$/g, '');
 const labelFor = s => String(s).replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/[_-]+/g, ' ').replace(/^./, c => c.toUpperCase());
 const typeFor = (key, value) => /email/i.test(key) ? 'email' : /mobile|phone|tel/i.test(key) ? 'tel' : /dob|birth|date/i.test(key) && /^\d{4}-\d\d-\d\d$/.test(value) ? 'date' : 'text';
+
 const normalizeField = s => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+function profileDisplayNames(fields, values) {
+  const get = (...patterns) => {
+    const f = fields.find(item => patterns.some(p => p.test(normalizeField(`${item.sourceKey || ''} ${item.label || ''}`))));
+    return f ? String(values[f.key] ?? '').trim() : '';
+  };
+  const first = get(/firstname/, /^name$/);
+  const father = get(/fathername/, /fathersname/, /fatherfullname/);
+  const fullName = [first, get(/^middlename$/), get(/^lastname$/)].filter(Boolean).join(' ').trim() || first;
+  const safe = s => String(s || '').replace(/[<>:"/\\|?*\x00-\x1F]/g, '').replace(/\s+/g, ' ').trim();
+  return { personName: safe(fullName || 'Selected Profile'), fatherName: safe(father), slug: safe([fullName, father].filter(Boolean).join('-')).replace(/\s+/g, '-').replace(/-+/g, '-') };
+}
 function optionsForField(field) {
   const k = normalizeField(`${field.sourceKey || ''} ${field.label || ''}`);
   if (k.includes('bankname') || k === 'bank') return { kind: 'select', options: BANK_LIST };
@@ -178,15 +190,31 @@ function App() {
         if (TEXT_EXT.test(path) && !path.split('/').some(p => SKIP_DIRS.has(p))) {
           let content = await entry.async('string');
           content = content.replace(TOKEN_RE, (whole, key) => { if (!Object.prototype.hasOwnProperty.call(values, key)) return whole; replacementCount++; return String(values[key] ?? ''); });
+          const names = profileDisplayNames(fields, values);
+          if (/manifest\.json$/i.test(path)) {
+            try {
+              const manifest = JSON.parse(content);
+              manifest.name = [names.personName, names.fatherName].filter(Boolean).join(' / ') || names.personName;
+              content = JSON.stringify(manifest, null, 2);
+              replacementCount++;
+            } catch (e) { throw new Error(`Could not customize extension name in ${path}: ${e.message}`); }
+          }
+          if (/popup\.html$/i.test(path)) {
+            const buttonLabel = `Fill ${[names.personName, names.fatherName].filter(Boolean).join(' / ') || names.personName} Detail`;
+            content = content.replace(/(<button\\b[^>]*\\bid=["']fillBtn["'][^>]*>)[\\s\\S]*?(<\\/button>)/i, `$1${buttonLabel}$2`);
+            replacementCount++;
+          }
           if (path.toLowerCase().endsWith('.json')) { try { JSON.parse(content); } catch (e) { throw new Error(`Invalid JSON after replacement in ${path}: ${e.message}`); } }
           output.file(path, content);
         } else output.file(path, await entry.async('uint8array'));
       }
-      const safeSlug = (projectSlug || 'customized-project').trim().replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'customized-project';
+      const profileNames = profileDisplayNames(fields, values);
+      const generatedProfileSlug = profileNames.slug || '';
+      const safeSlug = (generatedProfileSlug || projectSlug || 'customized-project').trim().replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'customized-project';
       const blob = await output.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } });
       const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `${safeSlug}.zip`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 5000);
       setValidation({ ok: true, errors: [], warnings: ['The original ZIP structure and non-target files are preserved. The generator does not execute or compile the exported project; test the extension on a safe, authorized test page.'] });
-      setStatus({ type: 'success', text: `Exported ${safeSlug}.zip. Updated ${replacementCount} value(s) in the detected formData object and explicit tokens.` });
+      setStatus({ type: 'success', text: `Exported ${safeSlug}.zip. Customized extension name, popup button, and updated ${replacementCount} value(s) in the detected formData object and explicit tokens.` });
     } catch (e) { setValidation({ ok: false, errors: [e.message], warnings: [] }); setStatus({ type: 'error', text: `Generation failed: ${e.message}` }); }
     finally { setBusy(false); }
   }
