@@ -117,12 +117,23 @@ function App() {
       }
       let newFields = [], newValues = {}, newBindings = [];
       if (found) {
-        newFields = found.props.filter(p => !isRemovedField({ sourceKey: p.sourceKey, label: labelFor(p.sourceKey) })).map((p, i) => {
+        // Name is a UI-only naming field: it is deliberately not added to bindings/formData.
+        newFields = [{
+          key: 'NAMING_ONLY_NAME',
+          sourceKey: 'namingOnlyName',
+          label: 'Name (ZIP and extension naming only)',
+          type: 'text',
+          required: false,
+          defaultValue: '',
+          namingOnly: true
+        }];
+        newValues.NAMING_ONLY_NAME = '';
+        newFields.push(...found.props.filter(p => !isRemovedField({ sourceKey: p.sourceKey, label: labelFor(p.sourceKey) })).map((p, i) => {
           const key = `DATA_${safeKey(p.sourceKey) || `FIELD_${i+1}`}`;
           newValues[key] = p.value;
           newBindings.push({ fieldKey: key, sourceKey: p.sourceKey });
           return { key, sourceKey: p.sourceKey, label: labelFor(p.sourceKey), type: typeFor(p.sourceKey, p.value), required: false, defaultValue: p.value };
-        });
+        }));
       }
       const hasMaritalStatus = newFields.some(isMaritalField);
       if (hasMaritalStatus && !newFields.some(isSpouseField)) {
@@ -166,7 +177,7 @@ function App() {
         const field = fields.find(f => patterns.some(pattern => pattern.test(`${f.key} ${f.label} ${f.sourceKey || ''}`)));
         return field ? String(values[field.key] ?? '').trim() : '';
       };
-      const personName = [valueFor(/first.?name/i), valueFor(/middle.?name/i), valueFor(/last.?name|surname/i)].filter(Boolean).join(' ') || valueFor(/^name$/i, /full.?name/i);
+      const personName = valueFor(/naming.?only.?name/i) || [valueFor(/first.?name/i), valueFor(/middle.?name/i), valueFor(/last.?name|surname/i)].filter(Boolean).join(' ') || valueFor(/^name$/i, /full.?name/i);
       const fatherName = valueFor(/father.?name/i, /fathername/i);
       const displayName = [personName, fatherName].filter(Boolean).join(' / ') || personName || 'Selected Profile';
       const bindMap = new Map(bindings.map(b => [b.sourceKey, String(values[b.fieldKey] ?? '')]));
