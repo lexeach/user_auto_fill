@@ -29,7 +29,7 @@ function optionsForField(field) {
   if (k === 'state' || k.endsWith('state')) return { kind: 'select', options: Object.keys(STATE_DISTRICT_DATA) };
   if (k === 'district' || k.endsWith('district')) return { kind: 'district' };
   if (k === 'region' || k.endsWith('region')) return { kind: 'select', options: ['Delhi', 'Outside Delhi'] };
-  if (k.includes('maritalstatus') || k === 'marital') return { kind: 'select', options: ['Married', 'Single'] };
+  if (k.includes('maritalstatus') || k === 'marital') return { kind: 'select', options: ['Married', 'Unmarried', 'Single', 'Divorced', 'Widow/Widower'] };
   return { kind: 'text' };
 }
 const isMaritalField = f => /maritalstatus|marital/i.test(normalizeField(`${f.sourceKey || ''} ${f.label || ''}`));
@@ -132,20 +132,20 @@ function App() {
           const key = `DATA_${safeKey(p.sourceKey) || `FIELD_${i+1}`}`;
           newValues[key] = p.value;
           newBindings.push({ fieldKey: key, sourceKey: p.sourceKey });
-          return { key, sourceKey: p.sourceKey, label: labelFor(p.sourceKey), type: typeFor(p.sourceKey, p.value), required: false, defaultValue: p.value };
+          return { key, sourceKey: p.sourceKey, label: labelFor(p.sourceKey), type: typeFor(p.sourceKey, p.value), required: true, defaultValue: p.value };
         }));
       }
       const hasMaritalStatus = newFields.some(isMaritalField);
       if (hasMaritalStatus && !newFields.some(isSpouseField)) {
         const spouseKey = 'DATA_SPOUSE_NAME';
-        newFields.push({ key: spouseKey, sourceKey: 'spouseName', label: 'Spouse Name', type: 'text', required: false, defaultValue: '', conditionalSpouse: true, generatedProperty: true });
+        newFields.push({ key: spouseKey, sourceKey: 'spouseName', label: 'Spouse Name', type: 'text', required: true, defaultValue: '', conditionalSpouse: true, generatedProperty: true });
         newValues[spouseKey] = '';
         newBindings.push({ fieldKey: spouseKey, sourceKey: 'spouseName', generatedProperty: true });
       }
       const tokens = [...new Set(list.flatMap(f => f.tokens))].sort();
       for (const token of tokens) {
         if (!newFields.some(f => f.key === token)) {
-          newFields.push({ key: token, label: labelFor(token), type: /email/i.test(token) ? 'email' : 'text', required: false, defaultValue: '' });
+          newFields.push({ key: token, label: labelFor(token), type: /email/i.test(token) ? 'email' : 'text', required: true, defaultValue: '' });
           newValues[token] = '';
         }
       }
@@ -165,7 +165,10 @@ function App() {
     const errors = [];
     fields.forEach(f => {
       const v = String(values[f.key] ?? '');
-      if (f.required && !v.trim()) errors.push(`${f.label} is required.`);
+      const maritalField = fields.find(isMaritalField);
+      const isMarried = maritalField && String(values[maritalField.key] ?? '').trim().toLowerCase() === 'married';
+      const isHiddenSpouse = (f.conditionalSpouse || /spouse.?name/i.test(`${f.key} ${f.label}`)) && !isMarried;
+      if (f.required && !isHiddenSpouse && !v.trim()) errors.push(`${f.label} is required.`);
       if (f.type === 'email' && v.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim())) errors.push(`${f.label} must be a valid email.`);
     });
     if (missingTokens.length) errors.push(`Unconfigured template tokens: ${missingTokens.map(t => `{{${t}}}`).join(', ')}`);
