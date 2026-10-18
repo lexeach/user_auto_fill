@@ -271,17 +271,17 @@ export const STATE_DISTRICT_DATA = {
     "Surguja"
   ],
   "Delhi": [
-    "Central Delhi",
-    "East Delhi",
+    "Central",
+    "East",
     "New Delhi",
-    "North Delhi",
-    "North East Delhi",
-    "North West Delhi",
+    "North",
+    "North East",
+    "North West",
     "Shahdara",
-    "South Delhi",
-    "South East Delhi",
-    "South West Delhi",
-    "West Delhi"
+    "South",
+    "South East",
+    "South West",
+    "West"
   ],
   "Goa": [
     "North Goa",
