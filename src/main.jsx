@@ -15,7 +15,7 @@ const normalizeField = s => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, 
 const REMOVED_FIELDS = new Set([
   'firstname', 'middlename', 'lastname', 'gender', 'dateofbirth', 'dob',
   'panno', 'pancardno', 'aadhaarno', 'aadharno', 'email', 'mobileno',
-  'mobile', 'phoneno'
+  'mobile', 'phoneno', 'std', 'stdcode', 'stdtelephonecode'
 ]);
 const isRemovedField = field => REMOVED_FIELDS.has(
   normalizeField(`${field.sourceKey || ''} ${field.label || ''}`).split(' ').join('')
